@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 import yfinance as yf
+import uvicorn
 import time
 from datetime import datetime, timedelta
 
@@ -123,3 +124,8 @@ def get_stock_history(symbol: str, period: str = "1mo"):
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8080)
