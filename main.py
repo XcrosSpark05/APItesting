@@ -154,3 +154,30 @@ def get_indian_indices():
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
+
+
+# NEW ENDPOINT: Stock Market News using NewsAPI
+@app.get("/stock-news")
+def get_stock_news():
+    try:
+        # Replace with your NewsAPI.org API key
+        NEWS_API_KEY = "YOUR_NEWS_API_KEY"
+        NEWS_API_URL = "https://newsapi.org/v2/everything"
+        params = {
+            "q": "stock market OR finance OR investment OR trading",
+            "language": "en",
+            "sortBy": "publishedAt",
+            "pageSize": 20,
+            "apiKey": NEWS_API_KEY
+        }
+        response = requests.get(NEWS_API_URL, params=params)
+        if response.status_code != 200:
+            raise HTTPException(status_code=500, detail="Error fetching news")
+        data = response.json()
+        articles = data.get("articles", [])
+        return {"stock_news": articles}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8080)
