@@ -1,8 +1,7 @@
 from fastapi import FastAPI, HTTPException
 import yfinance as yf
 import uvicorn
-import time
-from datetime import datetime, timedelta
+from datetime import datetime
 
 app = FastAPI()
 cached_data = {}
@@ -107,6 +106,48 @@ def get_top_losers():
         top_losers = sorted(stocks_data, key=lambda x: x["price_change"])[:10]
 
         return {"top_losers": top_losers}
+
+    except Exception as e:
+        print(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+# NEW ENDPOINT: Fetch all stocks
+@app.get("/all-stocks")
+def get_all_stocks():
+    try:
+        current_time = datetime.now()
+        stocks_data = []
+        nifty_stocks = get_nifty50_symbols()
+
+        for symbol in nifty_stocks:
+            print(f"Fetching data for: {symbol}")  # Debugging log
+            stock = yf.Ticker(symbol)
+            stock_data = stock.history(period="2d")
+
+            if stock_data.empty:
+                continue
+
+            try:
+                prev_close = stock_data["Close"].iloc[-2]
+                current_price = stock_data["Close"].iloc[-1]
+                price_change = ((current_price - prev_close) / prev_close) * 100
+            except IndexError:
+                continue
+
+            stock_info = {
+                "symbol": symbol,
+                "company_name": stock.info.get("shortName", "N/A"),
+                "price": round(current_price, 2),
+                "price_change": round(price_change, 2),
+                "logo": stock.info.get("logo_url", "N/A"),
+                "timestamp": current_time
+            }
+            stocks_data.append(stock_info)
+
+        if not stocks_data:
+            raise HTTPException(status_code=404, detail="No stock data available.")
+
+        return {"all_stocks": stocks_data}
 
     except Exception as e:
         print(f"Error: {e}")
