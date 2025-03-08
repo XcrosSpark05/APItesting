@@ -4,9 +4,8 @@ import uvicorn
 from datetime import datetime
 
 app = FastAPI()
-cached_data = {}
 
-# ✅ Dynamically fetch NIFTY 50 stock symbols
+# Function to fetch NIFTY 50 symbols (for stocks endpoints)
 def get_nifty50_symbols():
     nifty_tickers = [
         "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS", "ICICIBANK.NS", "HINDUNILVR.NS", "SBIN.NS",
@@ -32,40 +31,30 @@ def get_top_gainers():
         nifty_stocks = get_nifty50_symbols()
 
         for symbol in nifty_stocks:
-            print(f"Fetching data for: {symbol}")  # Debugging log
             stock = yf.Ticker(symbol)
-            stock_data = stock.history(period="2d")  # Fetch last 2 days data
-
+            stock_data = stock.history(period="2d")
             if stock_data.empty:
-                continue  # Skip stocks with no data
-
+                continue
             try:
                 prev_close = stock_data["Close"].iloc[-2]
                 current_price = stock_data["Close"].iloc[-1]
                 price_change = ((current_price - prev_close) / prev_close) * 100
             except IndexError:
-                continue  # Skip if data is missing
-
+                continue
             stock_info = {
                 "symbol": symbol,
                 "company_name": stock.info.get("shortName", "N/A"),
                 "price": round(current_price, 2),
                 "price_change": round(price_change, 2),
                 "logo": stock.info.get("logo_url", "N/A"),
-                "timestamp": current_time
+                "timestamp": current_time.isoformat()
             }
             stocks_data.append(stock_info)
-
         if not stocks_data:
             raise HTTPException(status_code=404, detail="No stock data available.")
-
-        # ✅ Sort by % price change and get top 10 gainers
         top_gainers = sorted(stocks_data, key=lambda x: x["price_change"], reverse=True)[:10]
-
         return {"top_gainers": top_gainers}
-
     except Exception as e:
-        print(f"Error: {e}")
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 @app.get("/top-losers")
@@ -74,83 +63,93 @@ def get_top_losers():
         current_time = datetime.now()
         stocks_data = []
         nifty_stocks = get_nifty50_symbols()
-
         for symbol in nifty_stocks:
             stock = yf.Ticker(symbol)
             stock_data = stock.history(period="2d")
-
             if stock_data.empty:
-                continue  # Skip stocks with no data
-
+                continue
             try:
                 prev_close = stock_data["Close"].iloc[-2]
                 current_price = stock_data["Close"].iloc[-1]
                 price_change = ((current_price - prev_close) / prev_close) * 100
             except IndexError:
-                continue  # Skip if data is missing
-
+                continue
             stock_info = {
                 "symbol": symbol,
                 "company_name": stock.info.get("shortName", "N/A"),
                 "price": round(current_price, 2),
                 "price_change": round(price_change, 2),
                 "logo": stock.info.get("logo_url", "N/A"),
-                "timestamp": current_time
+                "timestamp": current_time.isoformat()
             }
             stocks_data.append(stock_info)
-
         if not stocks_data:
             raise HTTPException(status_code=404, detail="No stock data available.")
-
-        # ✅ Sort by % price change and get top 10 losers
         top_losers = sorted(stocks_data, key=lambda x: x["price_change"])[:10]
-
         return {"top_losers": top_losers}
-
     except Exception as e:
-        print(f"Error: {e}")
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
-# NEW ENDPOINT: Fetch all stocks
 @app.get("/all-stocks")
 def get_all_stocks():
     try:
         current_time = datetime.now()
         stocks_data = []
         nifty_stocks = get_nifty50_symbols()
-
         for symbol in nifty_stocks:
-            print(f"Fetching data for: {symbol}")  # Debugging log
             stock = yf.Ticker(symbol)
             stock_data = stock.history(period="2d")
-
             if stock_data.empty:
                 continue
-
             try:
                 prev_close = stock_data["Close"].iloc[-2]
                 current_price = stock_data["Close"].iloc[-1]
                 price_change = ((current_price - prev_close) / prev_close) * 100
             except IndexError:
                 continue
-
             stock_info = {
                 "symbol": symbol,
                 "company_name": stock.info.get("shortName", "N/A"),
                 "price": round(current_price, 2),
                 "price_change": round(price_change, 2),
                 "logo": stock.info.get("logo_url", "N/A"),
-                "timestamp": current_time
+                "timestamp": current_time.isoformat()
             }
             stocks_data.append(stock_info)
-
         if not stocks_data:
             raise HTTPException(status_code=404, detail="No stock data available.")
-
         return {"all_stocks": stocks_data}
-
     except Exception as e:
-        print(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+# NEW ENDPOINT: Indian Indices
+@app.get("/indian-indices")
+def get_indian_indices():
+    try:
+        current_time = datetime.now()
+        index_data = {}
+        indices_info = {
+            "NIFTY 50": "^NSEI",
+            "SENSEX": "^BSESN",
+            "NIFTY BANK": "^NSEBANK",
+            "NIFTY IT": "^CNXIT",
+            "NIFTY MIDCAP 50": "^NSEMDCP50",
+            "NIFTY 100": "^CNX100",
+            "NIFTY FINANCIAL SERVICES (FINNIFTY)": "^CNXFIN",
+            "INDIA VIX": "^INDIAVIX"
+        }
+        for name, symbol in indices_info.items():
+            try:
+                data = yf.Ticker(symbol).history(period="1d")
+                index_data[name] = {
+                    "Current Value": round(data["Close"].iloc[-1], 2)
+                }
+            except Exception as e:
+                index_data[name] = f"Error: {e}"
+        if not index_data:
+            raise HTTPException(status_code=404, detail="No index data available.")
+        return {"indian_indices": index_data}
+    except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 if __name__ == "__main__":
