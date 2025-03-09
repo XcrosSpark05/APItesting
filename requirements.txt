@@ -1,11 +1,14 @@
 fastapi
 uvicorn
-requests
-pandas
-numpy
-scikit-learn
 yfinance
-
+numpy
+pandas
+tensorflow
+nltk
+wikipedia-api
+requests
+textblob
+scikit-learn
 
 
 
