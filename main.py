@@ -1,7 +1,11 @@
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 import yfinance as yf
 import uvicorn
 from datetime import datetime
+import requests
+import openai
+import os
 
 app = FastAPI()
 
@@ -29,7 +33,6 @@ def get_top_gainers():
         current_time = datetime.now()
         stocks_data = []
         nifty_stocks = get_nifty50_symbols()
-
         for symbol in nifty_stocks:
             stock = yf.Ticker(symbol)
             stock_data = stock.history(period="2d")
@@ -122,7 +125,6 @@ def get_all_stocks():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
-# NEW ENDPOINT: Indian Indices
 @app.get("/indian-indices")
 def get_indian_indices():
     try:
@@ -152,10 +154,6 @@ def get_indian_indices():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8080)
-
-
 # NEW ENDPOINT: Stock Market News using NewsAPI
 @app.get("/stock-news")
 def get_stock_news():
@@ -178,6 +176,34 @@ def get_stock_news():
         return {"stock_news": articles}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+# NEW ENDPOINT: Chatbot Endpoint for Stock Market Questions
+class ChatRequest(BaseModel):
+    question: str
+
+class ChatResponse(BaseModel):
+    answer: str
+
+@app.post("/chatbot", response_model=ChatResponse)
+async def chatbot_endpoint(chat: ChatRequest):
+    try:
+        # Set your OpenAI API key (or use an environment variable)
+        openai.api_key = os.getenv("OPENAI_API_KEY", "your_openai_api_key_here")
+        prompt = (
+            f"Answer the following stock market related question: {chat.question}\n\n"
+            "Provide clear and concise analysis, and if applicable, suggest whether to buy, sell, or hold. "
+            "Disclaimer: This is not financial advice."
+        )
+        response = openai.Completion.create(
+            model="text-davinci-003",
+            prompt=prompt,
+            max_tokens=150,
+            temperature=0.7
+        )
+        answer = response.choices[0].text.strip()
+        return ChatResponse(answer=answer)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
