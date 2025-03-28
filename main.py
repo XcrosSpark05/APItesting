@@ -19,11 +19,6 @@ app = FastAPI()
 # Download WordNet dataset (only required once)
 nltk.download('wordnet')
 
-# Initialize Wikipedia API (available for future use)
-wiki_wiki = wikipediaapi.Wikipedia(
-    language='en',
-    user_agent="PixxyBot/1.0 (mailto:your-email@example.com)"
-)
 
 # News API Key (replace with your key as needed)
 NEWS_API_KEY = "b7af606cdfa0434e9a8293e12911546e"
@@ -31,7 +26,7 @@ NEWS_API_KEY = "b7af606cdfa0434e9a8293e12911546e"
 # Cache for trained LSTM models
 MODEL_CACHE = {}
 
-# ------------------------- Stock & Sentiment Endpoints -------------------------
+# ------------------------- Stock & Sentiment Endpoints ------------------------
 
 def analyze_stock_news(symbol):
     """Fetch recent news articles for the given symbol and analyze sentiment."""
@@ -201,37 +196,6 @@ def get_portfolio_advice(symbol: str, quantity: int, goal: str = "investor"):
         "advice": static_advice
     }
 
-def get_greeting():
-    """Return a greeting based on the current time."""
-    current_hour = datetime.now().hour
-    if current_hour < 12:
-        return "Good morning"
-    elif 12 <= current_hour < 17:
-        return "Good afternoon"
-    else:
-        return "Good evening"
-
-@app.get("/chat")
-def chat(message: str):
-    """
-    Chat endpoint that responds with a time-sensitive greeting.
-    Pixxy introduces herself and answers in a friendly manner.
-    """
-    message_lower = message.lower()
-    
-    if "good night" in message_lower:
-        return {"response": "Good night! I'm Pixxy, your friendly financial advisor. Have a restful night!"}
-    
-    greeting = get_greeting()
-    
-    if any(greet in message_lower for greet in ["good morning", "good afternoon", "good evening", "hi", "hello", "hey"]):
-        return {"response": f"{greeting}! I'm Pixxy, your friendly financial advisor. How can I help you today?"}
-    elif "thank" in message_lower:
-        return {"response": "You're welcome! I'm here to help."}
-    elif "bye" in message_lower:
-        return {"response": "Goodbye! Feel free to reach out anytime."}
-    else:
-        return {"response": "I'm not sure I understand. Could you please rephrase?"}
 
 # ------------------------- Invest Genius API Endpoints -------------------------
 
