@@ -81,7 +81,6 @@ def fetch_stock_details(symbol):
         return {"error": f"Failed to fetch stock details: {str(e)}"}
 
 def get_lstm_prediction(symbol):
-    """Predict future stock price using an LSTM model with caching."""
     try:
         stock = yf.Ticker(symbol)
         df = stock.history(period="2y")["Close"]
@@ -89,7 +88,6 @@ def get_lstm_prediction(symbol):
         if len(df) < 60:
             return {"error": "Not enough historical data for prediction"}
 
-        # Use cached model if available
         if symbol in MODEL_CACHE:
             model, scaler = MODEL_CACHE[symbol]
         else:
@@ -125,45 +123,16 @@ def get_lstm_prediction(symbol):
     except Exception as e:
         return {"error": f"Stock prediction failed: {str(e)}"}
 
-@app.get("/stock")
-def get_stock_info(symbol: str, goal: str = "investor"):
+@app.get("/portfolio_summary")
+def get_portfolio_summary(symbol: str, quantity: int = 0, goal: str = "investor"):
     """
-    Endpoint to retrieve stock details along with news sentiment and a predicted future price.
-    The response also includes a basic recommendation.
+    Unified endpoint that provides:
+    - Stock details
+    - News sentiment
+    - Predicted future price (LSTM)
+    - Personalized investment advice (Buy/Hold/Sell)
     """
-    details = fetch_stock_details(symbol)
-    if isinstance(details, dict) and "error" in details:
-        return details
-    
-    news_sentiment = analyze_stock_news(symbol)
-    predicted_price = get_lstm_prediction(symbol)
 
-    if isinstance(predicted_price, dict) and "error" in predicted_price:
-        return predicted_price
-
-    recommendation = "Buy" if predicted_price > details["current_price"] else "Hold/Sell"
-    static_advice = f"The stock {symbol.upper()} is currently at {details['current_price']}. "
-    
-    if goal.lower() == "trader":
-        static_advice += f"Since you are a trader, consider short-term trends and news. Right now, the sentiment is {news_sentiment['sentiment']}. "
-    else:
-        static_advice += f"Since you are an investor, focus on long-term fundamentals. The P/E ratio is {details['pe_ratio']}. "
-    
-    static_advice += f"Based on market trends, moving averages, and sentiment analysis, our model suggests you should {recommendation}."
-
-    return {
-        "stock_details": details,
-        "news_sentiment": news_sentiment,
-        "predicted_price": predicted_price,
-        "advice": static_advice
-    }
-
-@app.get("/portfolio_advice")
-def get_portfolio_advice(symbol: str, quantity: int, goal: str = "investor"):
-    """
-    Provide personalized portfolio advice.
-    For example, 'I have [quantity] shares of [symbol]. Should I sell or hold, and if hold, for how long?'
-    """
     details = fetch_stock_details(symbol)
     if isinstance(details, dict) and "error" in details:
         return details
@@ -173,27 +142,47 @@ def get_portfolio_advice(symbol: str, quantity: int, goal: str = "investor"):
     if isinstance(predicted_price, dict) and "error" in predicted_price:
         return predicted_price
 
-    if predicted_price > details["current_price"]:
+    current_price = details["current_price"]
+    decision = "Hold"
+    hold_time = "N/A"
+    recommendation = "Hold/Sell"
+
+    # Decision logic
+    if predicted_price > current_price:
+        recommendation = "Buy"
         decision = "Hold"
-        hold_time = "at least 6-12 months" if goal.lower() == "investor" else "until the next short-term market adjustment (a few weeks)"
+        hold_time = "6-12 months" if goal.lower() == "investor" else "a few weeks"
     else:
+        recommendation = "Hold/Sell"
         decision = "Sell"
         hold_time = "N/A"
 
-    static_advice = (f"You have {quantity} shares of {symbol.upper()} currently priced at {details['current_price']:.2f}. "
-                     f"Our prediction estimates the price could reach {predicted_price:.2f}. Based on this, it is advisable to {decision}. ")
-    if decision == "Hold":
-        static_advice += f"For your goal as a {goal.lower()}, consider holding for {hold_time}."
+    # Advice generation
+    advice = f"The stock {symbol.upper()} is currently priced at {current_price:.2f}. "
+    advice += f"Our LSTM model predicts it may reach around {predicted_price:.2f}. "
+
+    if quantity > 0:
+        advice += f"You hold {quantity} shares. Based on prediction, you should {decision}. "
+        if decision == "Hold":
+            advice += f"Consider holding for {hold_time} as a {goal.lower()}."
+        else:
+            advice += "It might be a good time to consider selling."
     else:
-        static_advice += "It might be a good idea to sell your shares now."
-    
+        if goal.lower() == "trader":
+            advice += f"You're a trader, so consider short-term trends. News sentiment is {news_sentiment.get('sentiment', 'neutral')}."
+        else:
+            advice += f"As an investor, focus on fundamentals like P/E ratio: {details['pe_ratio']}."
+
+        advice += f" Recommendation: {recommendation}."
+
     return {
         "symbol": symbol.upper(),
         "quantity": quantity,
+        "goal": goal.lower(),
         "stock_details": details,
         "news_sentiment": news_sentiment,
         "predicted_price": predicted_price,
-        "advice": static_advice
+        "advice": advice
     }
 
 
